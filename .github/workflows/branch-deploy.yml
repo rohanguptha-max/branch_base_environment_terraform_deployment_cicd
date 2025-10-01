@@ -1,0 +1,59 @@
+name: Branch-Based Environment Deployment (Local Backend)
+
+on:
+  push:
+    branches:
+      - dev
+      - staging
+      - main
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout repo
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.7.0
+
+      # Initialize Terraform backend
+      - name: Terraform Init
+        run: terraform init -reconfigure
+
+      # Select or create workspace based on branch
+      - name: Select/Create Workspace
+        run: |
+
+          if [[ $GITHUB_REF == 'refs/heads/dev' ]]; then
+            terraform workspace select dev || terraform workspace new dev
+          elif [[ $GITHUB_REF == 'refs/heads/staging' ]]; then
+            terraform workspace select staging || terraform workspace new staging
+          else
+            terraform workspace select prod || terraform workspace new prod
+          fi
+
+      # Terraform Plan
+      - name: Terraform Plan
+        run: terraform plan
+
+      # Terraform Apply
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+
+      # Debug: List files
+      - name: List files
+        run: ls -la
+
+      # Upload deployment.log artifact
+      - name: Upload Deployment Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-log
+          path: ./deployment.log
